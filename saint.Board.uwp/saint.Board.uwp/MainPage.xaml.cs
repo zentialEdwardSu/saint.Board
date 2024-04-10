@@ -1,11 +1,6 @@
 ﻿using saint.Board.uwp.utils;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Foundation;
-using Windows.Foundation.Collections;
 using Windows.Storage.Pickers;
 using Windows.Storage.Streams;
 using Windows.Storage;
@@ -15,8 +10,6 @@ using Windows.UI.ViewManagement;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Automation.Peers;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
@@ -24,6 +17,8 @@ using Windows.UI.Xaml.Shapes;
 using System.Threading.Tasks;
 using System.Numerics;
 using Windows.ApplicationModel.Activation;
+using Windows.System;
+using Windows.UI.ViewManagement.Core;
 
 namespace saint.Board.uwp
 {
@@ -34,9 +29,14 @@ namespace saint.Board.uwp
         private bool isBoundRect;
 
         Symbol LassoSelect = (Symbol)0xEF20;
+        Symbol Checked = (Symbol)0xE001;
+        Symbol UnChecked = (Symbol)0xE10A;
+
+        public Symbol Current_Flyout_Checked;
 
         SaintBoardISF _currentBoard;
         bool _shouldSave = false;
+        bool _callInputPanelWhileFilePicker = false;
 
         private bool ShouldSave
         {
@@ -44,7 +44,7 @@ namespace saint.Board.uwp
             set
             {
                 _shouldSave = value;
-                (App.Current as App).UpdateShouldSave(value);
+                (App.Current as App).UpdateShouldSave(value); // update App's state for exiting notification
                 SetTitle(CurrentBoard.Name);
             }
         }
@@ -54,13 +54,15 @@ namespace saint.Board.uwp
             set
             {
                 _currentBoard = value;
-                (App.Current as App).UpdateValidBoard(value.IsValid);
+                (App.Current as App).UpdateValidBoard(value.IsValid); // update App's state for exiting notification
                 ShouldSave = false;
             }
         }
         public MainPage()
         {
             this.InitializeComponent();
+
+            Current_Flyout_Checked = UnChecked;
 
             (App.Current as App).NotifySave += MainPage_NotifySave;
 
@@ -69,6 +71,30 @@ namespace saint.Board.uwp
 
             inkCanvas.InkPresenter.StrokesCollected += InkPresenter_StrokesCollected;
             inkCanvas.InkPresenter.StrokesErased += InkPresenter_StrokesErased;
+
+            Window.Current.CoreWindow.Dispatcher.AcceleratorKeyActivated += Dispatcher_AcceleratorKeyActivated;
+        }
+
+        /// <summary>
+        /// Handle shortcut
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="args"></param>
+        private void Dispatcher_AcceleratorKeyActivated(CoreDispatcher sender, AcceleratorKeyEventArgs args)
+        {
+            if (args.EventType.ToString().Contains("Down"))
+            {
+                var ctrl = Window.Current.CoreWindow.GetKeyState(VirtualKey.Control);
+                if (ctrl.HasFlag(CoreVirtualKeyStates.Down))
+                {
+                    switch (args.VirtualKey)
+                    {
+                        case VirtualKey.S: // ctrl + s for quick save
+                            toolButtonSave_Click(new object(), new RoutedEventArgs());
+                            break;
+                    }
+                }
+            }
         }
 
         private void MainPage_NotifySave(object sender, string e)
@@ -91,7 +117,7 @@ namespace saint.Board.uwp
                     }
 
                     CurrentBoard = new SaintBoardISF(file);
-                    Notify(CurrentBoard.Name + " loaded!:D", NotifyType.StatusMessage);
+                    Notify(CurrentBoard.Name + " loaded!:D in "+HelperFuctions.GetCurrentTime(), NotifyType.StatusMessage);
                 }
                 else
                 {
@@ -129,7 +155,7 @@ namespace saint.Board.uwp
                 {
                     var savePicker = new FileSavePicker();
                     savePicker.SuggestedStartLocation = PickerLocationId.Desktop;
-                    savePicker.FileTypeChoices.Add("saint.Board's Data format", new[] { ".sbisf" });
+                    savePicker.FileTypeChoices.Add("saint.Board's Data format", new[] { SaintBoardISF.ExtensionName });
 
                     file = await savePicker.PickSaveFileAsync();
                 }
@@ -157,7 +183,7 @@ namespace saint.Board.uwp
                     await inkCanvas.InkPresenter.StrokeContainer.SaveAsync(stream);
                 }
                 CurrentBoard = new SaintBoardISF(file);
-                Notify(CurrentBoard.Name + " saved! :D", NotifyType.StatusMessage);
+                Notify(CurrentBoard.Name + " saved! :D in "+ HelperFuctions.GetCurrentTime(), NotifyType.StatusMessage);
             }
             catch (Exception ex)
             {
@@ -198,25 +224,30 @@ namespace saint.Board.uwp
             }
             var openPicker = new FileOpenPicker();
             openPicker.SuggestedStartLocation = PickerLocationId.Desktop;
-            openPicker.FileTypeFilter.Add(".sbisf");
+            openPicker.FileTypeFilter.Add(SaintBoardISF.ExtensionName);
             StorageFile file = await openPicker.PickSingleFileAsync();
             if (null != file)
             {
-                try
-                {
-                    using (var stream = await file.OpenSequentialReadAsync())
-                    {
-                        await inkCanvas.InkPresenter.StrokeContainer.LoadAsync(stream);
-                    }
+                InternalLoad(file);
+            }
+        }
 
-                    CurrentBoard = new SaintBoardISF(file);
-                    Notify(CurrentBoard.Name + " loaded!:D", NotifyType.StatusMessage);
-                }
-                catch (Exception ex)
+        private async void InternalLoad(StorageFile file)
+        {
+            try
+            {
+                using (var stream = await file.OpenSequentialReadAsync())
                 {
-                    // Report I/O errors during load.
-                    Notify(ex.Message, NotifyType.ErrorMessage);
+                    await inkCanvas.InkPresenter.StrokeContainer.LoadAsync(stream);
                 }
+
+                CurrentBoard = new SaintBoardISF(file);
+                Notify(CurrentBoard.Name + " loaded!:D in " + HelperFuctions.GetCurrentTime(), NotifyType.StatusMessage);
+            }
+            catch (Exception ex)
+            {
+                // Report I/O errors during load.
+                Notify(ex.Message, NotifyType.ErrorMessage);
             }
         }
 
@@ -359,23 +390,6 @@ namespace saint.Board.uwp
             var sc = e.Delta.Scale;
             var CenterPoint = e.Position;
 
-            //foreach(InkStroke stroke in inkCanvas.InkPresenter.StrokeContainer.GetStrokes())
-            //{
-            //    Matrix3x2 m = stroke.PointTransform;
-            //    if (sc == 1)
-            //    {
-            //        m.M31 += (float)e.Delta.Translation.X;
-            //        m.M32 += (float)e.Delta.Translation.Y;
-            //    } else
-            //    {
-            //        m.M11 *= sc;
-            //        m.M22 *= sc;
-            //        m.M31 = (float)CenterPoint.X + ((float)CenterPoint.X - m.M31) * sc;
-            //        m.M32 = (float)CenterPoint.Y + ((float)CenterPoint.Y - m.M32) * sc;
-            //    }
-
-            //    stroke.PointTransform = m;
-            //}
             if (sc == 1)
             {
                 foreach (InkStroke stroke in inkCanvas.InkPresenter.StrokeContainer.GetStrokes())
@@ -398,7 +412,59 @@ namespace saint.Board.uwp
                     stroke.PointTransform = m;
                 }
             }
-            ShouldSave = true;
+        }
+
+        private void touchGrid_ManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
+        {
+            // We autosave here if the board is valid
+            if (CurrentBoard.IsValid)
+            {
+                InternalSave(CurrentBoard.File);
+            }
+            else
+            {
+                ShouldSave = true;
+            }
+        }
+
+        private void InkToolbar_InkDrawingAttributesChanged(InkToolbar sender, object args)
+        {
+            // Enable tilt support.
+            sender.InkDrawingAttributes.IgnoreTilt = false;
+            inkCanvas.InkPresenter.UpdateDefaultDrawingAttributes(sender.InkDrawingAttributes);
+        }
+
+        private void inkCanvas_RightTapped(object sender, RightTappedRoutedEventArgs e)
+        {
+            var flyout = Resources["InkCanvasFlyout"] as MenuFlyout;
+            flyout.ShowAt(sender as FrameworkElement, e.GetPosition(sender as UIElement));
+        }
+
+        private async void MenuFlyout_Save_Click(object sender, RoutedEventArgs e)
+        {
+            await SaveTask();
+        }
+
+        private void MenuFlyout_EnableAutoRaise_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateStatus("Unimpl yet!XD", NotifyType.ErrorMessage);
+            //if (Current_Flyout_Checked == Checked)
+            //{
+            //    Current_Flyout_Checked = UnChecked;
+            //    _callInputPanelWhileFilePicker = false;
+            //} else
+            //{
+            //    _callInputPanelWhileFilePicker = true;
+            //    Current_Flyout_Checked = Checked;
+            //}
+            //UpdateStatus($"Checkbox changed to {_callInputPanelWhileFilePicker}", NotifyType.StatusMessage);
+        }
+
+        private void MenuFlyout_RaiseKeyBoard(object sender, RoutedEventArgs e)
+        {
+            //var res = InputPane.GetForCurrentView().TryShow();
+            //UpdateStatus("Try to raise keyboard, res: "+res, NotifyType.StatusMessage);
+            UpdateStatus("Unimpl yet!XD", NotifyType.ErrorMessage);
         }
 
         public enum NotifyType

@@ -33,5 +33,15 @@ namespace saint.Board.uwp.utils
             inkCanvas.Width = root.ActualWidth;
             inkCanvas.Height = root.ActualHeight;
         }
+
+        public static string GetCurrentTime()
+        {
+            DateTime currentTime = DateTime.Now;
+
+            string formattedTime = currentTime.ToString("HH:mm:ss");
+
+            return formattedTime;
+        }
     }
+
 }

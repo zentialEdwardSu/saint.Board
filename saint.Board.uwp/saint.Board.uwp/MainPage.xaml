@@ -7,7 +7,20 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     SizeChanged="Page_SizeChanged"
     mc:Ignorable="d"
-    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    Background="White">
+
+    <Page.Resources>
+        <MenuFlyout x:Key="InkCanvasFlyout">
+            <MenuFlyoutItem Text="Save" Icon="Save" Click="MenuFlyout_Save_Click"/>
+            <MenuFlyoutSeparator/>
+            <MenuFlyoutItem Text="Raise keyboard" Click="MenuFlyout_RaiseKeyBoard"/>
+            <MenuFlyoutItem Text="Allow auto raise InputPane"  x:Name="EnableAutoRaise_cb" Click="MenuFlyout_EnableAutoRaise_Click">
+                <MenuFlyoutItem.Icon>
+                    <SymbolIcon Symbol="{x:Bind Current_Flyout_Checked}" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+        </MenuFlyout>
+    </Page.Resources>
 
     <Grid>
         <Grid x:Name="rootGrid">
@@ -27,8 +40,9 @@
                     <Canvas x:Name="selectionCanvas"/>
                     <Grid x:Name="touchGrid"
                           ManipulationStarting="touchGrid_ManipulationStarting"
-                          ManipulationDelta="touchGrid_ManipulationDelta">
-                        <InkCanvas x:Name="inkCanvas" ManipulationMode="All"/> 
+                          ManipulationDelta="touchGrid_ManipulationDelta"
+                          ManipulationCompleted="touchGrid_ManipulationCompleted">
+                        <InkCanvas x:Name="inkCanvas" ManipulationMode="All" RightTapped="inkCanvas_RightTapped"/> 
                     </Grid>
                 </Grid>
 
@@ -36,15 +50,17 @@
                              Padding=" 0 10 0 10" CornerRadius="15" BorderBrush="Gray" BorderThickness="1">
                     <InkToolbar  TargetInkCanvas="{x:Bind inkCanvas}"
                                  Orientation="Vertical" 
-                                 InitialControls="None">
+                                 InitialControls="None"
+                                 InkDrawingAttributesChanged="InkToolbar_InkDrawingAttributesChanged">
 
                         <InkToolbar.Resources>
                             <BrushCollection x:Key="CalligraphicPenPalette">
                                 <SolidColorBrush>Black</SolidColorBrush>
                                 <SolidColorBrush Color="#FF004DE6"/>
-                                <SolidColorBrush>Gray</SolidColorBrush>
                                 <SolidColorBrush>Red</SolidColorBrush>
                                 <SolidColorBrush Color="#FFFFCE00"/>
+                                <SolidColorBrush Color="#008055"/>
+                                <SolidColorBrush>Gray</SolidColorBrush>
                             </BrushCollection>
                             <BrushCollection x:Key="pencilPalette">
                                 <SolidColorBrush>Black</SolidColorBrush>

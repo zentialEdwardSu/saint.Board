@@ -9,13 +9,13 @@
   <Identity
     Name="11a65907-eefc-4900-9221-45b252948acc"
     Publisher="CN=saint project"
-    Version="1.1.0.0" />
+    Version="1.2.6.0" />
 
   <mp:PhoneIdentity PhoneProductId="11a65907-eefc-4900-9221-45b252948acc" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>saint.Board.uwp</DisplayName>
-    <PublisherDisplayName>28405</PublisherDisplayName>
+    <PublisherDisplayName>EdwardSu</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -35,12 +35,15 @@
         DisplayName="Saint WhiteBoard"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png"
-        Description="saint.Board.uwp"
+        Description="saint.Board.uwp 是 saint project的一部分，旨在于提供开源，简约，可用的白板体验。目前只在UWP开发视情况迁移到新时代的跨平台框架以提供跨平台的支持。"
         BackgroundColor="transparent">
         <uap:DefaultTile Square71x71Logo="Assets\SmallTile.png"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
         <uap:InitialRotationPreference>
-          <uap:Rotation Preference="landscape"/></uap:InitialRotationPreference>
+          <uap:Rotation Preference="landscape"/>
+          <uap:Rotation Preference="portrait"/>
+          <uap:Rotation Preference="landscapeFlipped"/>
+          <uap:Rotation Preference="portraitFlipped"/></uap:InitialRotationPreference>
       </uap:VisualElements>
       <Extensions>
         <uap:Extension Category="windows.fileTypeAssociation">
@@ -48,6 +51,8 @@
             <uap:SupportedFileTypes>
               <uap:FileType>.sbisf</uap:FileType>
             </uap:SupportedFileTypes>
+            <uap:Logo>Assets\sbisf.png</uap:Logo>
+            <uap:EditFlags OpenIsSafe="true"/>
           </uap:FileTypeAssociation>
         </uap:Extension>
       </Extensions>
